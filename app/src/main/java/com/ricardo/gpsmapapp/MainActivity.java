@@ -33,77 +33,94 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 1. Inicializar el mapa de forma asíncrona
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
-                .findFragmentById(R.id.mapView);
+                .findFragmentById(R.id.mapView); // Asegúrate de que este ID coincida con tu XML
         mapFragment.getMapAsync(this);
 
+        // 2. Inicializar el cliente de ubicación
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
+        // 3. Comenzar la comprobación de permisos
         checkLocationPermission();
     }
 
-    /**
-     * Verifica si se tiene el permiso de ubicación fina y lo solicita si no es así.
-     */
+// --------------------------------------------------
+// LÓGICA DE PERMISOS DE UBICACIÓN
+// --------------------------------------------------
+
     private void checkLocationPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION},
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED) {
+            // Solicitar permisos
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
                     LOCATION_REQUEST_CODE);
         } else {
-            // Permiso ya concedido, obtener la ubicación
+            // Permisos ya concedidos, obtener ubicación
             getCurrentLocation();
         }
-    }
-
-    /**
-     * Obtiene la última ubicación conocida y la muestra en el mapa.
-     */
-    private void getCurrentLocation() {
-        // Doble verificación de permisos (necesaria para la llamada a getLastLocation)
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-
-        fusedLocationClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {
-                if (location != null) {
-                    LatLng currentLatLng = new LatLng(location.getLatitude(), location.getLongitude());
-                    // Mueve la cámara y hace zoom
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLatLng, 15));
-                    // Agrega un marcador en la ubicación actual
-                    mMap.addMarker(new MarkerOptions().position(currentLatLng).title("Current Location"));
-                }
-            }
-        });
-    }
-
-    @Override
-    public void onMapReady(GoogleMap googleMap) {
-        mMap = googleMap;
-
-        // Activa la capa de "Mi ubicación" (el punto azul) si los permisos están concedidos
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
-                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
-        }
-        mMap.setMyLocationEnabled(true);
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        // Maneja el resultado de la solicitud de permisos
         if (requestCode == LOCATION_REQUEST_CODE) {
+            // Comprobar si el permiso principal (ACCESS_FINE_LOCATION) fue concedido
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permiso concedido, ahora sí intenta obtener la ubicación
                 getCurrentLocation();
             } else {
-                // Permiso denegado
                 Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show();
             }
         }
+    }
+
+// --------------------------------------------------
+// LÓGICA DE GOOGLE MAPS
+// --------------------------------------------------
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+
+        // Verificar permisos antes de habilitar la capa de ubicación
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        // Muestra el punto azul de ubicación del usuario
+        mMap.setMyLocationEnabled(true);
+    }
+
+// --------------------------------------------------
+// LÓGICA DE OBTENCIÓN DE UBICACIÓN
+// --------------------------------------------------
+
+    private void getCurrentLocation() {
+        // Doble verificación de permisos (necesaria para la llamada al API)
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        // Obtener la última ubicación conocida
+        fusedLocationClient.getLastLocation()
+                .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                    @Override
+                    public void onSuccess(Location location) {
+                        if (location != null) {
+                            // Crear LatLng con la ubicación obtenida
+                            LatLng currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+
+                            // Mover la cámara a la ubicación (Zoom 15: calles)
+                            mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(currentLocation, 15));
+
+                            // Añadir un marcador
+                            mMap.addMarker(new MarkerOptions().position(currentLocation).title("Current Location"));
+                        }
+                    }
+                });
     }
 }
